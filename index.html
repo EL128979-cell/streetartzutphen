@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StreetEye</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #1a1d26;
+    --border: #252836;
+    --accent: #00e5ff;
+    --accent2: #ff4d4d;
+    --accent3: #ffd166;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --success: #22c55e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* PHONE SHELL */
+  .phone {
+    width: 100%;
+    max-width: 420px;
+    min-height: 100vh;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  .header {
+    padding: 20px 20px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .logo-icon svg { width: 22px; height: 22px; }
+
+  .logo-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 2px;
+    color: var(--text);
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .sos-btn {
+    background: var(--accent2);
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    animation: pulse-red 2s infinite;
+    letter-spacing: 0.5px;
+  }
+
+  @keyframes pulse-red {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,77,77,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(255,77,77,0); }
+  }
+
+  /* SCREENS */
+  .screen { display: none; flex-direction: column; flex: 1; padding: 20px; gap: 16px; overflow-y: auto; padding-bottom: 90px; }
+  .screen.active { display: flex; }
+
+  /* MAP SCREEN */
+  .map-area {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    height: 260px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .map-bg {
+    width: 100%; height: 100%;
+    background:
+      linear-gradient(rgba(0,229,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.04) 1px, transparent 1px),
+      var(--surface);
+    background-size: 30px 30px;
+    position: relative;
+  }
+
+  .map-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 4px;
+    color: var(--border);
+  }
+
+  /* Fake pins on map */
+  .pin {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .pin:hover { transform: scale(1.5); }
+  .pin.danger { background: rgba(255,77,77,0.8); border-color: var(--accent2); box-shadow: 0 0 10px rgba(255,77,77,0.5); }
+  .pin.suspicious { background: rgba(255,209,102,0.8); border-color: var(--accent3); box-shadow: 0 0 10px rgba(255,209,102,0.5); }
+  .pin.info { background: rgba(0,229,255,0.8); border-color: var(--accent); box-shadow: 0 0 10px rgba(0,229,255,0.5); }
+
+  .map-you {
+    position: absolute;
+    bottom: 30%;
+    left: 48%;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid white;
+    box-shadow: 0 0 0 6px rgba(0,229,255,0.2);
+  }
+
+  .map-controls {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .map-btn {
+    width: 32px; height: 32px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+
+  /* LEGEND */
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+
+  /* HOE WERKT HET */
+  .how-section {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    padding: 18px;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-bottom: 14px;
+  }
+
+  .step-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .step-text {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.5;
+    padding-top: 4px;
+  }
+
+  /* HISTORY */
+  .history-card {
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .history-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .history-icon.danger { background: rgba(255,77,77,0.15); }
+  .history-icon.suspicious { background: rgba(255,209,102,0.15); }
+  .history-icon.info { background: rgba(0,229,255,0.15); }
+
+  .history-info { flex: 1; }
+  .history-title { font-weight: 600; font-size: 14px; margin-bottom: 3px; }
+  .history-meta { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .badge.danger { background: rgba(255,77,77,0.2); color: var(--accent2); }
+  .badge.suspicious { background: rgba(255,209,102,0.2); color: var(--accent3); }
+  .badge.info { background: rgba(0,229,255,0.2); color: var(--accent); }
+
+  /* REPORT FORM */
+  .form-section {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .form-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .form-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-input:focus { border-color: var(--accent); }
+
+  .form-select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+  }
+
+  .icon-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .icon-option {
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .icon-option:hover { border-color: var(--accent); }
+  .icon-option.selected { border-color: var(--accent); background: rgba(0,229,255,0.1); }
+  .icon-option .emoji { font-size: 22px; }
+  .icon-option .label { font-size: 10px; color: var(--muted); }
+
+  .photo-area {
+    background: var(--surface2);
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .photo-area:hover { border-color: var(--accent); }
+  .photo-area .photo-icon { font-size: 28px; margin-bottom: 6px; }
+  .photo-area p { font-size: 13px; color: var(--muted); }
+  .photo-area .privacy-warn {
+    margin-top: 10px;
+    background: rgba(255,209,102,0.1);
+    border: 1px solid rgba(255,209,102,0.3);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--accent3);
+  }
+
+  .signalement-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .submit-btn {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.2s;
+  }
+  .submit-btn:hover { opacity: 0.85; }
+
+  .emergency-box {
+    background: rgba(255,77,77,0.1);
+    border: 1px solid rgba(255,77,77,0.4);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .emergency-box .em-icon { font-size: 24px; }
+  .emergency-box .em-text { flex: 1; }
+  .emergency-box .em-title { font-weight: 700; color: var(--accent2); font-size: 14px; }
+  .emergency-box .em-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .call-112 {
+    background: var(--accent2);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  /* ABOUT SCREEN */
+  .about-card {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    padding: 20px;
+  }
+
+  .about-hero {
+    text-align: center;
+    padding: 24px 0 16px;
+  }
+
+  .about-eye {
+    width: 80px;
+    height: 80px;
+    background: rgba(0,229,255,0.1);
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 14px;
+    font-size: 36px;
+  }
+
+  .about-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 4px;
+    color: var(--accent);
+  }
+
+  .about-team {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: 10px;
+    bottom: 10px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--accent), var(--border));
+  }
+
+  .timeline-item {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 12px 0;
+  }
+
+  .tl-dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .tl-dot.done { border-color: var(--accent); background: rgba(0,229,255,0.1); }
+
+  .tl-content { padding-top: 8px; }
+  .tl-title { font-weight: 600; font-size: 14px; }
+  .tl-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .q-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .q-card {
+    background: var(--surface2);
+    border-radius: 12px;
+    padding: 14px 16px;
+    border-left: 3px solid var(--accent);
+  }
+
+  .q-question { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .q-answer { font-size: 14px; font-weight: 500; color: var(--text); }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 420px;
+    background: rgba(10,12,16,0.95);
+    border-top: 1px solid var(--border);
+    display: flex;
+    backdrop-filter: blur(12px);
+    z-index: 200;
+    padding: 0 8px;
+  }
+
+  .nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 0 16px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    transition: color 0.2s;
+  }
+
+  .nav-btn.active { color: var(--accent); }
+  .nav-btn svg { width: 22px; height: 22px; }
+
+  .nav-center {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 4px;
+  }
+
+  .nav-plus-btn {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    position: absolute;
+    top: -20px;
+    box-shadow: 0 4px 20px rgba(0,229,255,0.4);
+    transition: transform 0.2s;
+  }
+  .nav-plus-btn:hover { transform: scale(1.08); }
+  .nav-plus-btn svg { width: 26px; height: 26px; color: var(--bg); }
+  .nav-center-label { font-size: 10px; color: var(--muted); margin-top: 36px; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: var(--success);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 999;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .screen.active > * {
+    animation: fadeUp 0.35s ease forwards;
+  }
+  .screen.active > *:nth-child(1) { animation-delay: 0.0s; }
+  .screen.active > *:nth-child(2) { animation-delay: 0.05s; }
+  .screen.active > *:nth-child(3) { animation-delay: 0.1s; }
+  .screen.active > *:nth-child(4) { animation-delay: 0.15s; }
+  .screen.active > *:nth-child(5) { animation-delay: 0.2s; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0a0c10" stroke-width="2.5">
+          <ellipse cx="12" cy="12" rx="10" ry="6"/>
+          <circle cx="12" cy="12" r="3" fill="#0a0c10"/>
+        </svg>
+      </div>
+      <div class="logo-text">STREET<span>EYE</span></div>
+    </div>
+    <button class="sos-btn" onclick="window.location.href='tel:112'">🚨 BEL 112</button>
+  </div>
+
+  <!-- KAART SCREEN -->
+  <div class="screen active" id="screen-map">
+    <div class="map-area">
+      <div class="map-bg">
+        <div class="map-label">KAART</div>
+        <!-- Fake pins -->
+        <div class="pin danger" style="top:35%;left:30%" title="Gevaar"></div>
+        <div class="pin suspicious" style="top:55%;left:60%" title="Verdacht"></div>
+        <div class="pin info" style="top:25%;left:65%" title="Info"></div>
+        <div class="pin suspicious" style="top:70%;left:25%" title="Verdacht"></div>
+        <div class="pin danger" style="top:45%;left:75%" title="Gevaar"></div>
+        <div class="map-you"></div>
+        <div class="map-controls">
+          <div class="map-btn">+</div>
+          <div class="map-btn">−</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div>Direct gevaar</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent3)"></div>Verdacht</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Info / Jij</div>
+    </div>
+
+    <div class="how-section">
+      <div class="section-title">HOE WERKT HET?</div>
+      <div class="step-list">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text">Druk op <strong>+</strong> om een melding te maken</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text">Kies een icoon betreffende de melding</div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text">Vul het signalement in en plaats de melding</div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-text">Bekijk je meldinggeschiedenis in de <strong>Geschiedenis</strong> tab</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MELDING SCREEN -->
+  <div class="screen" id="screen-report">
+
+    <div class="emergency-box">
+      <div class="em-icon">🚨</div>
+      <div class="em-text">
+        <div class="em-title">Direct gevaar?</div>
+        <div class="em-sub">Bel direct 112 voor hulp</div>
+      </div>
+      <button class="call-112" onclick="window.location.href='tel:112'">BEL 112</button>
+    </div>
+
+    <div class="form-section">
+      <div class="section-title">MAAK MELDING</div>
+
+      <div>
+        <div class="form-label">Type melding</div>
+        <div class="icon-grid">
+          <div class="icon-option selected" onclick="selectIcon(this)">
+            <div class="emoji">👁️</div>
+            <div class="label">Verdacht</div>
+          </div>
+          <div class="icon-option" onclick="selectIcon(this)">
+            <div class="emoji">⚠️</div>
+            <div class="label">Gevaar</div>
+          </div>
+          <div class="icon-option" onclick="selectIcon(this)">
+            <div class="emoji">🔍</div>
+            <div class="label">Achtervolg.</div>
+          </div>
+          <div class="icon-option" onclick="selectIcon(this)">
+            <div class="emoji">🚗</div>
+            <div class="label">Voertuig</div>
+          </div>
+          <div class="icon-option" onclick="selectIcon(this)">
+            <div class="emoji">🏃</div>
+            <div class="label">Vluchtend</div>
+          </div>
+          <div class="icon-option" onclick="selectIcon(this)">
+            <div class="emoji">💬</div>
+            <div class="label">Agressie</div>
+          </div>
+          <div class="icon-option" onclick="selectIcon(this)">
+            <div class="emoji">🔓</div>
+            <div class="label">Inbraak</div>
+          </div>
+          <div class="icon-option" onclick="selectIcon(this)">
+            <div class="emoji">ℹ️</div>
+            <div class="label">Info</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="form-label">Signalement persoon</div>
+        <div class="signalement-fields">
+          <div class="field-row">
+            <div>
+              <div class="form-label">Haar</div>
+              <select class="form-select">
+                <option value="">Kies...</option>
+                <option>Kort / donker</option>
+                <option>Kort / licht</option>
+                <option>Lang / donker</option>
+                <option>Lang / licht</option>
+                <option>Kaal</option>
+                <option>Pet / capuchon</option>
+              </select>
+            </div>
+            <div>
+              <div class="form-label">Huidskleur</div>
+              <select class="form-select">
+                <option value="">Kies...</option>
+                <option>Licht</option>
+                <option>Midden</option>
+                <option>Donker</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-row">
+            <div>
+              <div class="form-label">Trui / jas</div>
+              <input class="form-input" type="text" placeholder="Bijv. zwarte hoodie">
+            </div>
+            <div>
+              <div class="form-label">Broek</div>
+              <input class="form-input" type="text" placeholder="Bijv. jeans">
+            </div>
+          </div>
+          <div>
+            <div class="form-label">Extra opvallend</div>
+            <input class="form-input" type="text" placeholder="Bijv. tattoo op arm, rugzak...">
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="form-label">Omschrijving</div>
+        <textarea class="form-input" rows="3" placeholder="Wat heb je gezien? Beschrijf de situatie..."></textarea>
+      </div>
+
+      <div>
+        <div class="form-label">Locatie</div>
+        <input class="form-input" type="text" placeholder="📍 Huidige locatie wordt gebruikt">
+      </div>
+
+      <div class="photo-area" onclick="showPrivacyWarning()">
+        <div class="photo-icon">📷</div>
+        <p>Tik om een foto te maken</p>
+        <div class="privacy-warn" id="privacy-warn" style="display:none">
+          ⚠️ <strong>Let op:</strong> Pas op veiligheid en privacy! Foto's worden alleen gebruikt voor de melding.
+        </div>
+      </div>
+
+      <button class="submit-btn" onclick="submitReport()">MELDING PLAATSEN</button>
+    </div>
+  </div>
+
+  <!-- GESCHIEDENIS SCREEN -->
+  <div class="screen" id="screen-history">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:var(--accent)">MELDINGGESCHIEDENIS</div>
+
+    <div class="history-card">
+      <div class="history-icon danger">⚠️</div>
+      <div class="history-info">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div class="history-title">Verdacht persoon</div>
+          <span class="badge danger">Gevaar</span>
+        </div>
+        <div class="history-meta">
+          <span>📍 Marktstraat 12</span>
+          <span>🕐 14:32 vandaag</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Zwarte jas, capuchon op, loopt heen en weer voor de winkel.</div>
+      </div>
+    </div>
+
+    <div class="history-card">
+      <div class="history-icon suspicious">👁️</div>
+      <div class="history-info">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div class="history-title">Verdachte auto</div>
+          <span class="badge suspicious">Verdacht</span>
+        </div>
+        <div class="history-meta">
+          <span>📍 Parkeerplaats Centrum</span>
+          <span>🕐 12:05 vandaag</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Auto parkeert al 3 uur, niemand stapt in of uit.</div>
+      </div>
+    </div>
+
+    <div class="history-card">
+      <div class="history-icon info">ℹ️</div>
+      <div class="history-info">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div class="history-title">Kaputte verlichting</div>
+          <span class="badge info">Info</span>
+        </div>
+        <div class="history-meta">
+          <span>📍 Steegje Kerkstraat</span>
+          <span>🕐 Gisteren 22:10</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Straatlantaarn kapot, donker steegje.</div>
+      </div>
+    </div>
+
+    <div class="history-card">
+      <div class="history-icon suspicious">🏃</div>
+      <div class="history-info">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div class="history-title">Vluchtende persoon</div>
+          <span class="badge suspicious">Verdacht</span>
+        </div>
+        <div class="history-meta">
+          <span>📍 Winkelplein Noord</span>
+          <span>🕐 Gisteren 18:44</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Persoon rende weg na alarm winkel.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVER SCREEN -->
+  <div class="screen" id="screen-about">
+    <div class="about-card">
+      <div class="about-hero">
+        <div class="about-eye">👁️</div>
+        <div class="about-name">STREET EYE</div>
+        <div class="about-team">Team: De Nachtwacht · Tienskipdag</div>
+      </div>
+    </div>
+
+    <div class="how-section">
+      <div class="section-title">STAPPENPLAN</div>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="tl-dot done">✅</div>
+          <div class="tl-content">
+            <div class="tl-title">Plan van aanpak</div>
+            <div class="tl-sub">Idee uitwerken op de Idee-Kaart</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="tl-dot done">🔧</div>
+          <div class="tl-content">
+            <div class="tl-title">Opzet maken</div>
+            <div class="tl-sub">Eerste versie & netwerken</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="tl-dot">🤝</div>
+          <div class="tl-content">
+            <div class="tl-title">Netwerken van partners</div>
+            <div class="tl-sub">Helpen & netwerken van de app opbouwen</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="tl-dot">🚀</div>
+          <div class="tl-content">
+            <div class="tl-title">Lancering app</div>
+            <div class="tl-sub">StreetEye live voor iedereen</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="tl-dot">📊</div>
+          <div class="tl-content">
+            <div class="tl-title">Resultaten en evaluatie</div>
+            <div class="tl-sub">Eindresultaat meten en verbeteren</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="how-section">
+      <div class="section-title">SUPPORT & ROLLEN</div>
+      <div class="q-section">
+        <div class="q-card">
+          <div class="q-question">1. Wat kunnen jullie zelf doen?</div>
+          <div class="q-answer">Eerste opzet & Netwerken</div>
+        </div>
+        <div class="q-card">
+          <div class="q-question">2. Wat kunnen mensen en organisaties in je omgeving doen?</div>
+          <div class="q-answer">Helpen en Netwerken van de app</div>
+        </div>
+        <div class="q-card">
+          <div class="q-question">3. Wat kan de lokale politiek doen?</div>
+          <div class="q-answer">Financiering</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="navigate('map', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="3,6 9,3 15,6 21,3 21,18 15,21 9,18 3,21"/>
+        <line x1="9" y1="3" x2="9" y2="18"/>
+        <line x1="15" y1="6" x2="15" y2="21"/>
+      </svg>
+      Kaart
+    </button>
+
+    <div class="nav-center">
+      <div class="nav-plus-btn" onclick="navigate('report', null)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </div>
+      <div class="nav-center-label">Melding</div>
+    </div>
+
+    <button class="nav-btn" onclick="navigate('history', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="9"/>
+        <polyline points="12,7 12,12 15,15"/>
+      </svg>
+      Geschiedenis
+    </button>
+
+    <button class="nav-btn" onclick="navigate('about', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="9"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      Over
+    </button>
+  </nav>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+  function navigate(screen, btn) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + screen).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+  }
+
+  function selectIcon(el) {
+    document.querySelectorAll('.icon-option').forEach(i => i.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  function showPrivacyWarning() {
+    const w = document.getElementById('privacy-warn');
+    w.style.display = 'block';
+    showToast('📷 Foto gemaakt — let op privacy!');
+  }
+
+  function submitReport() {
+    showToast('✅ Melding geplaatst op de kaart!');
+    setTimeout(() => navigate('map', document.querySelector('.nav-btn')), 1200);
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+</script>
+</body>
+</html>
