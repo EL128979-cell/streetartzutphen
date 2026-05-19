@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>StreetEye</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10; --surface: #111318; --surface2: #1a1d26; --border: #252836;
+    --accent: #00e5ff; --accent2: #ff4d4d; --accent3: #ffd166;
+    --text: #e8eaf0; --muted: #6b7280; --success: #22c55e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; }
+
+  .phone { width: 100%; max-width: 430px; height: 100vh; display: flex; flex-direction: column; position: relative; overflow: hidden; background: var(--bg); }
+
+  /* HEADER */
+  .header {
+    padding: 14px 18px 12px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; z-index: 1000;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 34px; height: 34px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .logo-icon svg { width: 20px; height: 20px; }
+  .logo-text { font-family: 'Bebas Neue'; font-size: 24px; letter-spacing: 2px; }
+  .logo-text span { color: var(--accent); }
+  .sos-btn {
+    background: var(--accent2); color: white; border: none; padding: 8px 14px;
+    border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer;
+    animation: pulse-red 2s infinite; letter-spacing: 0.5px;
+  }
+  @keyframes pulse-red { 0%,100% { box-shadow: 0 0 0 0 rgba(255,77,77,0.4); } 50% { box-shadow: 0 0 0 8px rgba(255,77,77,0); } }
+
+  /* SCREENS */
+  .screen { display: none; flex: 1; overflow-y: auto; flex-direction: column; }
+  .screen.active { display: flex; }
+  .screen-inner { display: flex; flex-direction: column; gap: 14px; padding: 16px; padding-bottom: 90px; }
+
+  /* MAP */
+  #screen-map { position: relative; }
+  #map { flex: 1; width: 100%; min-height: 0; }
+
+  .map-overlay { position: absolute; bottom: 75px; left: 12px; right: 12px; pointer-events: none; z-index: 800; }
+  .map-legend {
+    background: rgba(10,12,16,0.92); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; display: flex; gap: 14px; flex-wrap: wrap; pointer-events: all;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .locate-btn {
+    position: absolute; top: 12px; right: 12px; z-index: 800;
+    background: var(--surface); border: 1px solid var(--border); color: var(--accent);
+    border-radius: 10px; padding: 10px 14px; font-size: 13px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; gap: 6px; font-family: 'DM Sans';
+  }
+  .count-badge {
+    position: absolute; top: 12px; left: 12px; z-index: 800;
+    background: rgba(10,12,16,0.9); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 8px 12px; font-size: 12px; color: var(--accent);
+    font-family: 'DM Mono';
+  }
+
+  /* Leaflet overrides */
+  .leaflet-container { background: #0d0f14 !important; }
+  .leaflet-tile { filter: brightness(0.65) saturate(0.5) hue-rotate(185deg); }
+  .leaflet-control-zoom, .leaflet-control-attribution { display: none !important; }
+  .leaflet-popup-content-wrapper {
+    background: var(--surface2) !important; border: 1px solid var(--border) !important;
+    border-radius: 12px !important; color: var(--text) !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.7) !important; padding: 0 !important;
+  }
+  .leaflet-popup-tip { background: var(--surface2) !important; }
+  .leaflet-popup-content { margin: 0 !important; padding: 0 !important; }
+  .leaflet-popup-close-button { color: var(--muted) !important; top: 10px !important; right: 10px !important; }
+
+  /* POPUP */
+  .popup-inner { padding: 14px; min-width: 200px; max-width: 260px; }
+  .popup-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .popup-emoji { font-size: 22px; }
+  .popup-title { font-weight: 700; font-size: 15px; }
+  .popup-desc { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 6px; }
+  .popup-sig { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .popup-time { font-size: 11px; color: var(--muted); }
+  .popup-img { width: 100%; border-radius: 8px; margin-top: 8px; object-fit: cover; max-height: 140px; display: block; }
+  .del-btn {
+    margin-top: 10px; background: rgba(255,77,77,0.15); border: 1px solid rgba(255,77,77,0.35);
+    color: var(--accent2); border-radius: 8px; padding: 7px 12px; font-size: 12px;
+    cursor: pointer; width: 100%; font-family: 'DM Sans'; transition: background 0.2s;
+  }
+  .del-btn:hover { background: rgba(255,77,77,0.25); }
+
+  /* FORM */
+  .form-section { background: var(--surface); border-radius: 16px; border: 1px solid var(--border); padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+  .section-title { font-family: 'Bebas Neue'; font-size: 18px; letter-spacing: 2px; color: var(--accent); }
+  .form-label { font-size: 11px; font-weight: 600; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; display: block; }
+  .form-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; color: var(--text);
+    font-family: 'DM Sans'; font-size: 14px; outline: none; transition: border-color 0.2s; resize: vertical;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-select {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; color: var(--text);
+    font-family: 'DM Sans'; font-size: 14px; outline: none; cursor: pointer; appearance: none;
+  }
+  .icon-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+  .icon-option {
+    background: var(--surface2); border: 2px solid var(--border); border-radius: 10px;
+    padding: 10px; text-align: center; cursor: pointer; transition: all 0.2s;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .icon-option:hover { border-color: var(--accent); }
+  .icon-option.selected { border-color: var(--accent); background: rgba(0,229,255,0.1); }
+  .icon-option .emoji { font-size: 20px; }
+  .icon-option .label { font-size: 10px; color: var(--muted); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* PHOTO */
+  .photo-area {
+    background: var(--surface2); border: 2px dashed var(--border);
+    border-radius: 12px; padding: 20px; text-align: center;
+    cursor: pointer; transition: border-color 0.2s; position: relative;
+  }
+  .photo-area:hover { border-color: var(--accent); }
+  .photo-area input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .photo-area .photo-icon { font-size: 28px; margin-bottom: 6px; }
+  .photo-area p { font-size: 13px; color: var(--muted); }
+  .privacy-warn { margin-top: 10px; background: rgba(255,209,102,0.1); border: 1px solid rgba(255,209,102,0.3); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--accent3); }
+  #photo-preview { display: none; width: 100%; border-radius: 10px; margin-top: 10px; max-height: 180px; object-fit: cover; }
+  .remove-photo { display: none; margin-top: 6px; background: none; border: none; color: var(--accent2); font-size: 12px; cursor: pointer; text-decoration: underline; }
+
+  .submit-btn {
+    background: var(--accent); color: var(--bg); border: none; border-radius: 12px;
+    padding: 16px; font-family: 'Bebas Neue'; font-size: 20px; letter-spacing: 2px;
+    cursor: pointer; width: 100%; transition: opacity 0.2s;
+  }
+  .submit-btn:hover { opacity: 0.85; }
+  .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .emergency-box {
+    background: rgba(255,77,77,0.1); border: 1px solid rgba(255,77,77,0.4);
+    border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+  }
+  .em-icon { font-size: 24px; }
+  .em-text { flex: 1; }
+  .em-title { font-weight: 700; color: var(--accent2); font-size: 14px; }
+  .em-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .call-112 {
+    background: var(--accent2); color: white; border: none; border-radius: 8px;
+    padding: 10px 14px; font-weight: 700; font-size: 14px; cursor: pointer; white-space: nowrap;
+  }
+
+  /* HISTORY */
+  .history-card {
+    background: var(--surface); border-radius: 12px; border: 1px solid var(--border);
+    padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .history-card:hover { border-color: var(--accent); }
+  .history-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .history-icon.danger { background: rgba(255,77,77,0.15); }
+  .history-icon.suspicious { background: rgba(255,209,102,0.15); }
+  .history-icon.info { background: rgba(0,229,255,0.15); }
+  .history-info { flex: 1; min-width: 0; }
+  .history-title { font-weight: 600; font-size: 14px; margin-bottom: 3px; }
+  .history-meta { font-size: 12px; color: var(--muted); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .badge.danger { background: rgba(255,77,77,0.2); color: var(--accent2); }
+  .badge.suspicious { background: rgba(255,209,102,0.2); color: var(--accent3); }
+  .badge.info { background: rgba(0,229,255,0.2); color: var(--accent); }
+  .history-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--border); }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state .big { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; line-height: 1.6; }
+
+  /* NAV */
+  .bottom-nav { flex-shrink: 0; background: rgba(10,12,16,0.97); border-top: 1px solid var(--border); display: flex; z-index: 1000; padding: 0 8px; }
+  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0 14px; background: none; border: none; color: var(--muted); cursor: pointer; font-family: 'DM Sans'; font-size: 11px; transition: color 0.2s; }
+  .nav-btn.active { color: var(--accent); }
+  .nav-btn svg { width: 22px; height: 22px; }
+  .nav-center { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .nav-plus-btn {
+    width: 52px; height: 52px; border-radius: 50%; background: var(--accent); border: 3px solid var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: absolute; top: -18px; box-shadow: 0 4px 20px rgba(0,229,255,0.4); transition: transform 0.2s;
+  }
+  .nav-plus-btn:hover { transform: scale(1.08); }
+  .nav-plus-btn svg { width: 26px; height: 26px; color: var(--bg); }
+  .nav-center-label { font-size: 10px; color: var(--muted); margin-top: 34px; font-family: 'DM Sans'; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%) translateY(-20px);
+    background: var(--success); color: white; padding: 12px 20px; border-radius: 10px;
+    font-weight: 600; font-size: 14px; opacity: 0; transition: all 0.3s; z-index: 9999;
+    white-space: nowrap; pointer-events: none; max-width: 90vw; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--accent2); }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .screen-inner > * { animation: fadeUp 0.3s ease both; }
+  .screen-inner > *:nth-child(1) { animation-delay: 0s; }
+  .screen-inner > *:nth-child(2) { animation-delay: 0.05s; }
+  .screen-inner > *:nth-child(3) { animation-delay: 0.1s; }
+  .screen-inner > *:nth-child(4) { animation-delay: 0.15s; }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0a0c10" stroke-width="2.5">
+          <ellipse cx="12" cy="12" rx="10" ry="6"/>
+          <circle cx="12" cy="12" r="3" fill="#0a0c10"/>
+        </svg>
+      </div>
+      <div class="logo-text">STREET<span>EYE</span></div>
+    </div>
+    <button class="sos-btn" onclick="window.location.href='tel:112'">🚨 BEL 112</button>
+  </div>
+
+  <!-- KAART -->
+  <div class="screen active" id="screen-map">
+    <div id="map"></div>
+    <div class="count-badge" id="count-badge">0 meldingen</div>
+    <button class="locate-btn" onclick="locateMe()">📍 Mijn locatie</button>
+    <div class="map-overlay">
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div>Gevaar</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent3)"></div>Verdacht</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Info</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MELDING -->
+  <div class="screen" id="screen-report">
+    <div class="screen-inner">
+      <div class="emergency-box">
+        <div class="em-icon">🚨</div>
+        <div class="em-text">
+          <div class="em-title">Direct gevaar?</div>
+          <div class="em-sub">Bel direct 112 voor hulp</div>
+        </div>
+        <button class="call-112" onclick="window.location.href='tel:112'">BEL 112</button>
+      </div>
+
+      <div class="form-section">
+        <div class="section-title">MAAK MELDING</div>
+
+        <div>
+          <div class="form-label">Type melding *</div>
+          <div class="icon-grid" id="icon-grid">
+            <div class="icon-option selected" data-severity="suspicious" onclick="selectIcon(this)"><div class="emoji">👁️</div><div class="label">Verdacht</div></div>
+            <div class="icon-option" data-severity="danger" onclick="selectIcon(this)"><div class="emoji">⚠️</div><div class="label">Gevaar</div></div>
+            <div class="icon-option" data-severity="suspicious" onclick="selectIcon(this)"><div class="emoji">🔍</div><div class="label">Achtervolg.</div></div>
+            <div class="icon-option" data-severity="suspicious" onclick="selectIcon(this)"><div class="emoji">🚗</div><div class="label">Voertuig</div></div>
+            <div class="icon-option" data-severity="suspicious" onclick="selectIcon(this)"><div class="emoji">🏃</div><div class="label">Vluchtend</div></div>
+            <div class="icon-option" data-severity="danger" onclick="selectIcon(this)"><div class="emoji">💢</div><div class="label">Agressie</div></div>
+            <div class="icon-option" data-severity="danger" onclick="selectIcon(this)"><div class="emoji">🔓</div><div class="label">Inbraak</div></div>
+            <div class="icon-option" data-severity="info" onclick="selectIcon(this)"><div class="emoji">ℹ️</div><div class="label">Info</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="form-label">Omschrijving *</div>
+          <textarea class="form-input" id="desc-input" rows="3" placeholder="Wat heb je gezien? Beschrijf de situatie..."></textarea>
+        </div>
+
+        <div>
+          <div class="form-label">Signalement (optioneel)</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div class="field-row">
+              <div>
+                <div class="form-label">Haar</div>
+                <select class="form-select" id="sig-hair">
+                  <option value="">Kies...</option>
+                  <option>Kort / donker</option><option>Kort / licht</option>
+                  <option>Lang / donker</option><option>Lang / licht</option>
+                  <option>Kaal</option><option>Pet / capuchon</option>
+                </select>
+              </div>
+              <div>
+                <div class="form-label">Huidskleur</div>
+                <select class="form-select" id="sig-skin">
+                  <option value="">Kies...</option>
+                  <option>Licht</option><option>Midden</option><option>Donker</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div>
+                <div class="form-label">Bovenkleding</div>
+                <input class="form-input" id="sig-top" type="text" placeholder="Bijv. zwarte hoodie">
+              </div>
+              <div>
+                <div class="form-label">Broek</div>
+                <input class="form-input" id="sig-bottom" type="text" placeholder="Bijv. jeans">
+              </div>
+            </div>
+            <div>
+              <div class="form-label">Extra opvallend</div>
+              <input class="form-input" id="sig-extra" type="text" placeholder="Bijv. tattoo, rugzak, fiets...">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="form-label">Locatie</div>
+          <input class="form-input" id="loc-display" type="text" placeholder="📍 Wordt automatisch bepaald..." readonly>
+        </div>
+
+        <div>
+          <div class="form-label">Foto (optioneel)</div>
+          <div class="photo-area">
+            <input type="file" accept="image/*" capture="environment" id="photo-input" onchange="handlePhoto(this)">
+            <div class="photo-icon">📷</div>
+            <p>Tik om foto te maken of te kiezen</p>
+            <div class="privacy-warn">⚠️ Pas op veiligheid en privacy — maak geen foto's als dat gevaarlijk is!</div>
+            <img id="photo-preview" alt="Foto preview">
+          </div>
+          <button class="remove-photo" id="remove-photo-btn" onclick="removePhoto()">✕ Foto verwijderen</button>
+        </div>
+
+        <button class="submit-btn" id="submit-btn" onclick="submitReport()">MELDING PLAATSEN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GESCHIEDENIS -->
+  <div class="screen" id="screen-history">
+    <div class="screen-inner" id="history-list"></div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="nav-map" onclick="navigate('map',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="3,6 9,3 15,6 21,3 21,18 15,21 9,18 3,21"/>
+        <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+      </svg>
+      Kaart
+    </button>
+    <div class="nav-center">
+      <div class="nav-plus-btn" onclick="navigate('report',document.getElementById('nav-map'))">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </div>
+      <div class="nav-center-label">Melding</div>
+    </div>
+    <button class="nav-btn" id="nav-history" onclick="navigate('history',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="9"/><polyline points="12,7 12,12 15,15"/>
+      </svg>
+      Geschiedenis
+    </button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ── STATE ────────────────────────────────────────────────────────────────
+let map, userMarker, userLatLng = null;
+let reports = [];
+let markerMap = {};   // id → L.marker
+let photoBase64 = null;
+let selIcon = { severity: 'suspicious', emoji: '👁️', label: 'Verdacht' };
+
+const COLORS = { danger: '#ff4d4d', suspicious: '#ffd166', info: '#00e5ff' };
+
+// ── STORAGE ───────────────────────────────────────────────────────────────
+function save() { try { localStorage.setItem('se_v2', JSON.stringify(reports)); } catch(e) {} }
+function load() { try { const d = localStorage.getItem('se_v2'); if (d) reports = JSON.parse(d); } catch(e) { reports = []; } }
+
+// ── MAP ───────────────────────────────────────────────────────────────────
+function initMap() {
+  map = L.map('map', { zoomControl: false, attributionControl: false, center: [52.5175, 5.4706], zoom: 14 });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(p => {
+      userLatLng = [p.coords.latitude, p.coords.longitude];
+      map.setView(userLatLng, 15);
+      placeUserDot();
+      updateLocDisplay();
+    }, () => {});
+  }
+}
+
+function placeUserDot() {
+  if (!userLatLng) return;
+  if (userMarker) userMarker.remove();
+  const icon = L.divIcon({
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:#00e5ff;border:3px solid white;box-shadow:0 0 0 6px rgba(0,229,255,0.2)"></div>`,
+    className: '', iconAnchor: [8, 8]
+  });
+  userMarker = L.marker(userLatLng, { icon }).addTo(map);
+  userMarker.bindPopup('<div class="popup-inner"><div style="font-weight:700;color:#00e5ff">📍 Jouw locatie</div></div>');
+}
+
+function locateMe() {
+  if (!navigator.geolocation) { toast('❌ Locatie niet beschikbaar', true); return; }
+  navigator.geolocation.getCurrentPosition(p => {
+    userLatLng = [p.coords.latitude, p.coords.longitude];
+    map.flyTo(userLatLng, 16, { duration: 1.2 });
+    placeUserDot();
+    updateLocDisplay();
+    toast('📍 Locatie bijgewerkt');
+  }, () => toast('❌ Kan locatie niet bepalen', true));
+}
+
+function updateLocDisplay() {
+  if (!userLatLng) return;
+  document.getElementById('loc-display').value = `📍 ${userLatLng[0].toFixed(5)}, ${userLatLng[1].toFixed(5)}`;
+}
+
+function makePinIcon(r) {
+  const c = COLORS[r.severity] || '#00e5ff';
+  return L.divIcon({
+    html: `<div style="width:38px;height:38px;border-radius:50%;background:${c}20;border:2.5px solid ${c};display:flex;align-items:center;justify-content:center;font-size:19px;box-shadow:0 0 14px ${c}60;cursor:pointer">${r.emoji}</div>`,
+    className: '', iconAnchor: [19, 19]
+  });
+}
+
+function makePopupHtml(r) {
+  const sigParts = [r.sig?.haar, r.sig?.huidskleur, r.sig?.boven, r.sig?.broek, r.sig?.extra].filter(Boolean);
+  const sigLine = sigParts.length ? `<div class="popup-sig">👤 ${sigParts.join(' · ')}</div>` : '';
+  const imgLine = r.photo ? `<img src="${r.photo}" class="popup-img" alt="foto">` : '';
+  return `<div class="popup-inner">
+    <div class="popup-header"><div class="popup-emoji">${r.emoji}</div><div class="popup-title">${r.label}</div></div>
+    <div class="popup-desc">${r.description}</div>
+    ${sigLine}
+    <div class="popup-time">🕐 ${r.time}</div>
+    ${imgLine}
+    <button class="del-btn" onclick="deleteReport('${r.id}')">🗑 Melding verwijderen</button>
+  </div>`;
+}
+
+function addPin(r) {
+  const m = L.marker([r.lat, r.lng], { icon: makePinIcon(r) }).addTo(map);
+  m.bindPopup(makePopupHtml(r), { maxWidth: 290 });
+  markerMap[r.id] = m;
+}
+
+function deleteReport(id) {
+  reports = reports.filter(r => r.id !== id);
+  save();
+  if (markerMap[id]) { markerMap[id].remove(); delete markerMap[id]; }
+  map.closePopup();
+  updateBadge();
+  renderHistory();
+  toast('🗑 Melding verwijderd');
+}
+
+function updateBadge() {
+  const n = reports.length;
+  document.getElementById('count-badge').textContent = n === 1 ? '1 melding' : `${n} meldingen`;
+}
+
+// ── FORM ──────────────────────────────────────────────────────────────────
+function selectIcon(el) {
+  document.querySelectorAll('.icon-option').forEach(i => i.classList.remove('selected'));
+  el.classList.add('selected');
+  selIcon = { severity: el.dataset.severity, emoji: el.querySelector('.emoji').textContent, label: el.querySelector('.label').textContent };
+}
+
+function handlePhoto(input) {
+  const f = input.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    photoBase64 = e.target.result;
+    document.getElementById('photo-preview').src = photoBase64;
+    document.getElementById('photo-preview').style.display = 'block';
+    document.getElementById('remove-photo-btn').style.display = 'block';
+    toast('📷 Foto toegevoegd');
+  };
+  reader.readAsDataURL(f);
+}
+
+function removePhoto() {
+  photoBase64 = null;
+  document.getElementById('photo-input').value = '';
+  document.getElementById('photo-preview').style.display = 'none';
+  document.getElementById('remove-photo-btn').style.display = 'none';
+}
+
+function submitReport() {
+  const desc = document.getElementById('desc-input').value.trim();
+  if (!desc) { toast('⚠️ Voer een omschrijving in', true); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'BEZIG...';
+
+  const doSave = (latlng) => {
+    const r = {
+      id: Date.now().toString(),
+      severity: selIcon.severity,
+      emoji: selIcon.emoji,
+      label: selIcon.label,
+      description: desc,
+      lat: latlng[0], lng: latlng[1],
+      time: new Date().toLocaleString('nl-NL', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }),
+      photo: photoBase64,
+      sig: {
+        haar: document.getElementById('sig-hair').value,
+        huidskleur: document.getElementById('sig-skin').value,
+        boven: document.getElementById('sig-top').value,
+        broek: document.getElementById('sig-bottom').value,
+        extra: document.getElementById('sig-extra').value,
+      }
+    };
+    reports.unshift(r);
+    save();
+    addPin(r);
+    map.flyTo([r.lat, r.lng], 16, { duration: 1 });
+    updateBadge();
+    renderHistory();
+    resetForm();
+    btn.disabled = false; btn.textContent = 'MELDING PLAATSEN';
+    toast('✅ Melding live op de kaart!');
+    setTimeout(() => navigate('map', document.getElementById('nav-map')), 900);
+  };
+
+  if (userLatLng) { doSave(userLatLng); return; }
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      p => { userLatLng = [p.coords.latitude, p.coords.longitude]; doSave(userLatLng); },
+      () => { doSave([52.5175 + (Math.random()-.5)*.005, 5.4706 + (Math.random()-.5)*.005]); }
+    );
+  } else {
+    doSave([52.5175 + (Math.random()-.5)*.005, 5.4706 + (Math.random()-.5)*.005]);
+  }
+}
+
+function resetForm() {
+  document.getElementById('desc-input').value = '';
+  ['sig-hair','sig-skin'].forEach(id => document.getElementById(id).value = '');
+  ['sig-top','sig-bottom','sig-extra'].forEach(id => document.getElementById(id).value = '');
+  removePhoto();
+  document.querySelectorAll('.icon-option').forEach(i => i.classList.remove('selected'));
+  document.getElementById('icon-grid').children[0].classList.add('selected');
+  selIcon = { severity: 'suspicious', emoji: '👁️', label: 'Verdacht' };
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────────
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  if (!reports.length) {
+    el.innerHTML = `<div class="empty-state"><div class="big">👁️</div><p>Nog geen meldingen.<br>Maak je eerste melding via de <strong>+</strong> knop.</p></div>`;
+    return;
+  }
+  el.innerHTML = reports.map(r => {
+    const sigParts = [r.sig?.haar, r.sig?.huidskleur, r.sig?.boven, r.sig?.broek, r.sig?.extra].filter(Boolean);
+    const sigLine = sigParts.length ? `<div style="font-size:11px;color:var(--muted);margin-top:3px">👤 ${sigParts.join(' · ')}</div>` : '';
+    const thumb = r.photo ? `<img src="${r.photo}" class="history-thumb" alt="foto">` : '';
+    const badge = r.severity === 'danger' ? 'Gevaar' : r.severity === 'suspicious' ? 'Verdacht' : 'Info';
+    return `<div class="history-card" onclick="focusReport('${r.id}')">
+      <div class="history-icon ${r.severity}">${r.emoji}</div>
+      <div class="history-info">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div class="history-title">${r.label}</div>
+          <span class="badge ${r.severity}">${badge}</span>
+        </div>
+        <div class="history-meta">🕐 ${r.time}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:5px;line-height:1.4">${r.description}</div>
+        ${sigLine}
+      </div>
+      ${thumb}
+    </div>`;
+  }).join('');
+}
+
+function focusReport(id) {
+  const r = reports.find(x => x.id === id); if (!r) return;
+  navigate('map', document.getElementById('nav-map'));
+  setTimeout(() => {
+    map.flyTo([r.lat, r.lng], 17, { duration: 1 });
+    if (markerMap[id]) setTimeout(() => markerMap[id].openPopup(), 1200);
+  }, 150);
+}
+
+// ── NAV ───────────────────────────────────────────────────────────────────
+function navigate(screen, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (screen === 'map') setTimeout(() => map.invalidateSize(), 80);
+  if (screen === 'history') renderHistory();
+}
+
+function toast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isErr ? ' error' : '');
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  load();
+  initMap();
+  reports.forEach(r => addPin(r));
+  updateBadge();
+  renderHistory();
+});
+</script>
+</body>
+</html>
